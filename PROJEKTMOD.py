@@ -150,6 +150,7 @@ if __name__ == '__main__':
         "current_time": 0.0
     }
     model = HeatingModel(apartment)
+    jdhssjwcnic
 
 
 
