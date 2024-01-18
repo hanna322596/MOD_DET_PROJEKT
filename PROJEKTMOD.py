@@ -1,3 +1,3 @@
 import math
 
-radiator
+radiator = 0
