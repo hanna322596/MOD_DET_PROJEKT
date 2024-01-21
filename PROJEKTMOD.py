@@ -1,49 +1,83 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import cloudpickle
-from PIL import Image
+from matplotlib.colors import ListedColormap
+
 
 
 class HeatingModel():
+    def __init__(self, parameters: dict):
+        self.parameters = parameters
+        self.rooms = {}
+        self.apartment = np.zeros((100, 100))
+        self.mask_matrix = (100, 100)
 
-    def __init__(self, apart_dict):
-        self.params = apart_dict
-        self.partial_matrix = {}
-        self.result_matrix = np.zeros((100,100))
-        self.mask_matrix = np.zeros((100,100))
-        self.build_partial_matrix(apart_dict.get('rooms'))
+        for key, val in parameters['rooms'].items():
+            row_min = val['rowmin']
+            row_max = val['rowmax']
+            col_min = val['colmin']
+            col_max = val['colmax']
+            self.rooms[key] = np.zeros((row_max - row_min, col_max - col_min))
+            mask = parameters["mask"][key]
+            self.rooms[key][mask == 1] = 4
+            self.apartment[row_min:row_max, col_min:col_max] = self.rooms[key]
 
-    def build_partial_matrix(self, rooms_dict):
-        matrix = np.zeros((100, 100), dtype=int)
-        for room, details in rooms_dict.items():
-            row_range = range(details['rowmin'], details['rowmax'])
-            col_range = range(details['colmin'], details['colmax'])
-            matrix[np.ix_(row_range, col_range)] = 1
-        return matrix
+        dicts = {'windows': 1, 'walls': 2, 'doors': 3, 'radiators': 5}
+
+        for d in dicts:
+            for key, val in parameters[d].items():
+                row_min = val['rowmin']
+                row_max = val['rowmax']
+                col_min = val['colmin']
+                col_max = val['colmax']
+                self.apartment[row_min:row_max, col_min:col_max] = dicts[d]
+
+    def build_rooms(self):
+        return self.rooms.values()
+
+    def build_apartment(self):
+        return self.apartment
+
+    def evolve_in_unit_timestep(self, dt: float):
+        force_term_full = self.parameters["force_term"](self.parameters["domain"]["grid"],
+                                                     self.parameters["current_time"],
+                                                     self.mask_matrix)
+        for key in self.parameters["windows"].keys():
+            self.apartment[
+                self.params["windows"][key]["rowmin"]: self.parameters["windows"][key]["rowmax"],
+                self.params["windows"][key]["colmin"]: self.parameters["windows"][key]["colmax"]
+            ] = self.parameters["window_temp"](self.parameters["current_time"])
 
 
+        self.parameters["current_time"] += dt
+        return self
 
+    def evolve(self, n_steps: int, dt: float):
+        for _ in tqdm.tqdm(range(n_steps), desc="TIME STEPS"):
+            self.evolve_in_unit_timestep(dt)
+        self.build_apartment()
+        return self
 
 
 if __name__ == '__main__':
     apartment = {
-        'rooms': {
-            'A1': {
-                "rowmin": 2, "rowmax": 48, "colmin": 2, "colmax": 38
+        "rooms": { #rooms
+            "A1": {
+                "rowmin": 2, "rowmax": 48, "colmin": 2, "colmax": 38, "init_func": lambda x: 295 + np.random.random(x.shape)
             },
-            'A2': {
-                "rowmin": 2, "rowmax": 48, "colmin": 52, "colmax": 98
+            "A2": {
+                "rowmin": 2, "rowmax": 48, "colmin": 52, "colmax": 98, "init_func": lambda x: 298 + np.random.random(x.shape)
             },
-            'A3': {
-                "rowmin": 2, "rowmax": 50, "colmin": 40, "colmax": 50
+            "A3": {
+                "rowmin": 2, "rowmax": 50, "colmin": 40, "colmax": 50, "init_func": lambda x: 297 + np.random.random(x.shape)
             },
-            'A4': {
-                "rowmin": 50, "rowmax": 88, "colmin": 2, "colmax": 98
+            "A4": {
+                "rowmin": 50, "rowmax": 88, "colmin": 2, "colmax": 98, "init_func": lambda x: 296 + np.random.random(x.shape)
             },
-            'A5': {
+            "A5": {
                 "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100
             }
         },
+        "mask": {"A1": 1, "A2": 1, "A3": 1, "A4": 1, "A5": 0},
         "radiators": {
             'R1': {
                 "rowmin": 47, "rowmax": 48, "colmin": 20, "colmax": 27, "mask_values": 1
@@ -58,7 +92,7 @@ if __name__ == '__main__':
                 "rowmin": 2, "rowmax": 3, "colmin": 44, "colmax": 46, "mask_values": 4
             }
         },
-        "walls": {
+        "walls": { #walls
             'W1': {
                 "rowmin": 0, "rowmax": 2, "colmin": 0, "colmax": 100
             },
@@ -149,7 +183,16 @@ if __name__ == '__main__':
         "diffusion": 0.1,
         "current_time": 0.0
     }
+    cmap = ListedColormap(['white', 'blue', 'black', 'brown', 'floralwhite', 'red'])
+
     model = HeatingModel(apartment)
+    plt.imshow(model.build_apartment(), cmap=cmap)
+    plt.show()
+    plt.imshow(model.build_apartment(), cmap=plt.get_cmap("coolwarm"))
+    plt.title(f"t = {model.parameters['current_time']}")
+    plt.colorbar().set_label("Temperature[K]")
+    plt.show()
+
 
 
 
