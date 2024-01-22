@@ -7,44 +7,43 @@ from matplotlib.colors import ListedColormap
 class HeatingModel():
     def __init__(self, parameters: dict):
         self.parameters = parameters
-        self.rooms = {}
-        self.apartment = np.zeros((100, 100))
-        self.mask_matrix = (100, 100)
+        self.partial_matrix = {}
+        self.result_matrix = np.zeros((100, 100))
+        self.mask_matrix = np.zeros((100, 100))
 
         for key, val in parameters['rooms'].items():
             row_min = val['rowmin']
             row_max = val['rowmax']
             col_min = val['colmin']
             col_max = val['colmax']
-            self.rooms[key] = np.zeros((row_max - row_min, col_max - col_min))
+            self.partial_matrix[key] = np.zeros((row_max - row_min, col_max - col_min))
             mask = parameters["mask"][key]
-            self.rooms[key][mask == 1] = 4
-            self.apartment[row_min:row_max, col_min:col_max] = self.rooms[key]
+            self.partial_matrix[key][mask == 1] = 4
+            self.result_matrix[row_min:row_max, col_min:col_max] = self.partial_matrix[key]
 
-        dicts = {'windows': 1, 'walls': 2, 'doors': 3, 'radiators': 5}
+        index = {'windows': 1, 'walls': 2, 'doors': 3, 'radiators': 5}
 
-        for d in dicts:
-            for key, val in parameters[d].items():
+        for i in index:
+            for key, val in parameters[i].items():
                 row_min = val['rowmin']
                 row_max = val['rowmax']
                 col_min = val['colmin']
                 col_max = val['colmax']
-                self.apartment[row_min:row_max, col_min:col_max] = dicts[d]
+                self.result_matrix[row_min:row_max, col_min:col_max] = index[i]
 
-    def build_rooms(self):
-        return self.rooms.values()
+
 
     def build_apartment(self):
-        return self.apartment
+        return self.result_matrix
 
     def evolve_in_unit_timestep(self, dt: float):
         force_term_full = self.parameters["force_term"](self.parameters["domain"]["grid"],
                                                      self.parameters["current_time"],
                                                      self.mask_matrix)
         for key in self.parameters["windows"].keys():
-            self.apartment[
-                self.params["windows"][key]["rowmin"]: self.parameters["windows"][key]["rowmax"],
-                self.params["windows"][key]["colmin"]: self.parameters["windows"][key]["colmax"]
+            self.result_matrix[
+                self.parameters["windows"][key]["rowmin"]: self.parameters["windows"][key]["rowmax"],
+                self.parameters["windows"][key]["colmin"]: self.parameters["windows"][key]["colmax"]
             ] = self.parameters["window_temp"](self.parameters["current_time"])
 
 
@@ -192,9 +191,3 @@ if __name__ == '__main__':
     plt.title(f"t = {model.parameters['current_time']}")
     plt.colorbar().set_label("Temperature[K]")
     plt.show()
-
-
-
-
-
-
