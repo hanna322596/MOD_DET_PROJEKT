@@ -4,7 +4,7 @@ from matplotlib.colors import ListedColormap
 
 
 
-class HeatingModel():
+class HeatingModel:
     def __init__(self, parameters: dict):
         self.parameters = parameters
         self.partial_matrix = {}
@@ -37,6 +37,8 @@ class HeatingModel():
         return self.result_matrix
 
     def evolve_in_unit_timestep(self, dt: float):
+        hx=1
+        ht=1/4
         force_term_full = self.parameters["force_term"](self.parameters["domain"]["grid"],
                                                      self.parameters["current_time"],
                                                      self.mask_matrix)
