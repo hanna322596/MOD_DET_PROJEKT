@@ -10,7 +10,7 @@ class HeatingModel:
         self.parameters = parameters
         self.partial_matrix = {}
         self.result_matrix = np.zeros((100, 100))
-        self.mask_matrix =  np.zeros((100, 100))
+        self.mask_matrix = np.zeros((100, 100))
         self.index = {"windows": 1, "walls": 2, "doors": 3, "radiators": 5}
         self.build_partial_matrix()
         self.build_result_matrix()
@@ -18,26 +18,35 @@ class HeatingModel:
         self.build_apartment()
         self.heatingData = []
 
+        for key, val in parameters['rooms'].items():
+            self.partial_matrix[key] = np.zeros((val['rowmax'] - val['rowmin'], val['colmax'] - val['colmin']))
+            mask = parameters["mask"][key]
+            self.partial_matrix[key][mask == 1] = 4
+            self.result_matrix[val['rowmin']:val['rowmax'], val['colmin']:val['colmax']] = self.partial_matrix[key]
+        for i in self.index:
+            for key, val in self.parameters[i].items():
+                self.result_matrix[val['rowmin']:val['rowmax'], val['colmin']:val['colmax']] = self.index[i]
+
     def build_partial_matrix(self):
         for room in self.parameters["rooms"].keys():
-            coordinates = self.parameters["rooms"][room]
+            coord = self.parameters["rooms"][room]
             if room not in self.partial_matrix.keys():
-                self.partial_matrix[room] = np.zeros((coordinates["rowmax"]-coordinates["rowmin"], coordinates["colmax"]-coordinates["colmin"]))
-                self.partial_matrix[room] = coordinates["init_func"](self.partial_matrix[room])
+                self.partial_matrix[room] = np.zeros((coord["rowmax"]-coord["rowmin"], coord["colmax"]-coord["colmin"]))
+                self.partial_matrix[room] = coord["init_func"](self.partial_matrix[room])
             else:
-                self.partial_matrix[room] = self.result_matrix[coordinates["rowmin"]: coordinates["rowmax"],
-                                            coordinates["colmin"]: coordinates["colmax"]]
+                self.partial_matrix[room] = self.result_matrix[coord["rowmin"]: coord["rowmax"],
+                                            coord["colmin"]: coord["colmax"]]
 
     def build_result_matrix(self):
         for room in self.parameters["rooms"].keys():
-            coordinates = self.parameters["rooms"][room]
-            self.result_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]]= self.partial_matrix[room]
+            coord = self.parameters["rooms"][room]
+            self.result_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = self.partial_matrix[room]
 
     def build_mask_matrix(self):
         counter = 1
         for radiators in self.parameters["radiators"].keys():
-            coordinates = self.parameters["radiators"][radiators]
-            self.mask_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]] = counter
+            coord = self.parameters["radiators"][radiators]
+            self.mask_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = counter
             counter += 1
 
 
@@ -225,7 +234,7 @@ if __name__ == '__main__':
     cmap = ListedColormap(['white', 'blue', 'black', 'brown', 'floralwhite', 'red'])
 
     model = HeatingModel(apartment)
-    plt.imshow(model.build_apartment(), cmap=cmap)
+    plt.imshow(model.result_matrix, cmap=cmap)
     plt.show()
     plt.imshow(model.build_apartment(), cmap=plt.get_cmap("coolwarm"))
     plt.title(f"t = {model.parameters['current_time']}")
