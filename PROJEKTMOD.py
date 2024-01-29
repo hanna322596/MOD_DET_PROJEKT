@@ -11,10 +11,11 @@ class HeatingModel:
         self.partial_matrix = {}
         self.result_matrix = np.zeros((100, 100))
         self.mask_matrix = np.zeros((100, 100))
+        self.temp_matrix = np.zeros((100, 100))
         self.index = {"windows": 1, "walls": 2, "doors": 3, "radiators": 5}
         self.build_partial_matrix()
         self.build_result_matrix()
-        self.build_mask_matrix()
+        self.build_result_matrix2()
         self.build_apartment()
         self.heatingData = []
 
@@ -37,10 +38,16 @@ class HeatingModel:
                 self.partial_matrix[room] = self.result_matrix[coord["rowmin"]: coord["rowmax"],
                                             coord["colmin"]: coord["colmax"]]
 
+
     def build_result_matrix(self):
         for room in self.parameters["rooms"].keys():
             coord = self.parameters["rooms"][room]
             self.result_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = self.partial_matrix[room]
+
+    def build_result_matrix2(self):
+        for room in self.parameters["rooms"].keys():
+            coord = self.parameters["rooms"][room]
+            self.temp_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] += coord["temp"]
 
     def build_mask_matrix(self):
         counter = 1
@@ -234,9 +241,14 @@ if __name__ == '__main__':
     cmap = ListedColormap(['white', 'blue', 'black', 'brown', 'floralwhite', 'red'])
 
     model = HeatingModel(apartment)
-    plt.imshow(model.result_matrix, cmap=cmap)
+    plt.imshow(model.build_apartment(), cmap=cmap)
     plt.show()
-    plt.imshow(model.build_apartment(), cmap=plt.get_cmap("coolwarm"))
+    apartment_matrix = model.temp_matrix
+    temperature_min = 286
+    temperature_max = 298
+    apartment_matrix = np.clip(apartment_matrix, temperature_min, temperature_max)
+
+    plt.imshow(apartment_matrix, cmap=plt.get_cmap("coolwarm"), vmin=temperature_min, vmax=temperature_max)
     plt.title(f"t = {model.parameters['current_time']}")
-    plt.colorbar().set_label("Temperature[K]")
+    plt.colorbar().set_label("Temperature [K]")
     plt.show()
