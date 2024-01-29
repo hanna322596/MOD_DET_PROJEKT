@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
+#import seaborn as sns
 
 
 class HeatingModel:
@@ -9,73 +10,110 @@ class HeatingModel:
         self.parameters = parameters
         self.partial_matrix = {}
         self.result_matrix = np.zeros((100, 100))
-        self.mask_matrix = np.zeros((100, 100))
+        self.mask_matrix =  np.zeros((100, 100))
+        self.index = {"windows": 1, "walls": 2, "doors": 3, "radiators": 5}
+        self.build_partial_matrix()
+        self.build_result_matrix()
+        self.build_mask_matrix()
+        self.build_apartment()
+        self.heatingData = []
 
-        for key, val in parameters['rooms'].items():
-            row_min = val['rowmin']
-            row_max = val['rowmax']
-            col_min = val['colmin']
-            col_max = val['colmax']
-            self.partial_matrix[key] = np.zeros((row_max - row_min, col_max - col_min))
-            mask = parameters["mask"][key]
-            self.partial_matrix[key][mask == 1] = 4
-            self.result_matrix[row_min:row_max, col_min:col_max] = self.partial_matrix[key]
+    def build_partial_matrix(self):
+        for room in self.parameters["rooms"].keys():
+            coordinates = self.parameters["rooms"][room]
+            if room not in self.partial_matrix.keys():
+                self.partial_matrix[room] = np.zeros((coordinates["rowmax"]-coordinates["rowmin"], coordinates["colmax"]-coordinates["colmin"]))
+                self.partial_matrix[room] = coordinates["init_func"](self.partial_matrix[room])
+            else:
+                self.partial_matrix[room] = self.result_matrix[coordinates["rowmin"]: coordinates["rowmax"],
+                                            coordinates["colmin"]: coordinates["colmax"]]
 
-        index = {'windows': 1, 'walls': 2, 'doors': 3, 'radiators': 5}
+    def build_result_matrix(self):
+        for room in self.parameters["rooms"].keys():
+            coordinates = self.parameters["rooms"][room]
+            self.result_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]]= self.partial_matrix[room]
 
-        for i in index:
-            for key, val in parameters[i].items():
-                row_min = val['rowmin']
-                row_max = val['rowmax']
-                col_min = val['colmin']
-                col_max = val['colmax']
-                self.result_matrix[row_min:row_max, col_min:col_max] = index[i]
+    def build_mask_matrix(self):
+        counter = 1
+        for radiators in self.parameters["radiators"].keys():
+            coordinates = self.parameters["radiators"][radiators]
+            self.mask_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]] = counter
+            counter += 1
 
 
-
-    def build_apartment(self):
-        return self.result_matrix
 
     def evolve_in_unit_timestep(self, dt: float):
-        hx=1
-        ht=1/4
+        coefficient = self.parameters["diffusion_coeff"] * dt / self.parameters["domain"]["dx"] ** 2
         force_term_full = self.parameters["force_term"](self.parameters["domain"]["grid"],
-                                                     self.parameters["current_time"],
-                                                     self.mask_matrix)
+                                                    self.parameters["current_time"],
+                                                    self.mask_matrix)
+
         for key in self.parameters["windows"].keys():
             self.result_matrix[
                 self.parameters["windows"][key]["rowmin"]: self.parameters["windows"][key]["rowmax"],
                 self.parameters["windows"][key]["colmin"]: self.parameters["windows"][key]["colmax"]
             ] = self.parameters["window_temp"](self.parameters["current_time"])
-
-
+        self.build_partial_matrix()
+        for key in self.parameters["rooms"].keys():
+            if np.mean(self.partial_matrix[key]) > self.parameters["rooms"][key]["temp"]:
+                force_term_full[
+                    self.parameters["rooms"][key]["rowmin"] + 1: self.parameters["rooms"][key]["rowmax"] - 1,
+                    self.parameters["rooms"][key]["colmin"] + 1: self.parameters["rooms"][key]["colmax"] - 1
+                ] = 0
+            self.partial_matrix[key][1:-1, 1:-1] += coefficient * (self.partial_matrix[key][0:-2, 1:-1] +
+                                                     self.partial_matrix[key][2:, 1:-1] +
+                                                     self.partial_matrix[key][1:-1, 0:-2] +
+                                                     self.partial_matrix[key][1:-1, 2:] -
+                                                     4*self.partial_matrix[key][1:-1, 1:-1]) + \
+                                                    force_term_full[
+                                                        self.parameters["rooms"][key]["rowmin"]+1: self.parameters["rooms"][key]["rowmax"]-1,
+                                                        self.parameters["rooms"][key]["colmin"]+1: self.parameters["rooms"][key]["colmax"]-1
+                                                    ]
+            self.partial_matrix[key][0, :] = self.partial_matrix[key][1, :]
+            self.partial_matrix[key][-1, :] = self.partial_matrix[key][-2, :]
+            self.partial_matrix[key][:, 0] = self.partial_matrix[key][:, 1]
+            self.partial_matrix[key][:, -1] = self.partial_matrix[key][:, -2]
+        self.build_result_matrix()
+        for key in self.parameters["doors"].keys():
+            self.result_matrix[
+                self.parameters["doors"][key]["rowmin"]: self.parameters["doors"][key]["rowmax"],
+                self.parameters["doors"][key]["colmin"]: self.parameters["doors"][key]["colmax"]
+            ] = np.mean(self.result_matrix[
+                            self.parameters["doors"][key]["rowmin"]: self.parameters["doors"][key]["rowmax"],
+                            self.parameters["doors"][key]["colmin"]: self.parameters["doors"][key]["colmax"]
+                        ]
+                        )
+        self.build_partial_matrix()
+        self.heatingData.append(np.sum(force_term_full))
         self.parameters["current_time"] += dt
         return self
 
     def evolve(self, n_steps: int, dt: float):
         for _ in tqdm.tqdm(range(n_steps), desc="TIME STEPS"):
             self.evolve_in_unit_timestep(dt)
-        self.build_apartment()
+        self.heatingData = np.cumsum(self.heatingData)
         return self
 
+    def build_apartment(self):
+        return self.result_matrix
 
 if __name__ == '__main__':
     apartment = {
         "rooms": { #rooms
             "A1": {
-                "rowmin": 2, "rowmax": 48, "colmin": 2, "colmax": 38, "init_func": lambda x: 295 + np.random.random(x.shape)
+                "rowmin": 2, "rowmax": 48, "colmin": 2, "colmax": 38, "init_func": lambda x: 295 + np.random.random(x.shape), "temp": 296
             },
             "A2": {
-                "rowmin": 2, "rowmax": 48, "colmin": 52, "colmax": 98, "init_func": lambda x: 298 + np.random.random(x.shape)
+                "rowmin": 2, "rowmax": 48, "colmin": 52, "colmax": 98, "init_func": lambda x: 298 + np.random.random(x.shape), "temp": 296
             },
             "A3": {
-                "rowmin": 2, "rowmax": 50, "colmin": 40, "colmax": 50, "init_func": lambda x: 297 + np.random.random(x.shape)
+                "rowmin": 2, "rowmax": 50, "colmin": 40, "colmax": 50, "init_func": lambda x: 297 + np.random.random(x.shape), "temp": 296
             },
             "A4": {
-                "rowmin": 50, "rowmax": 88, "colmin": 2, "colmax": 98, "init_func": lambda x: 296 + np.random.random(x.shape)
+                "rowmin": 50, "rowmax": 88, "colmin": 2, "colmax": 98, "init_func": lambda x: 296 + np.random.random(x.shape), "temp": 296
             },
             "A5": {
-                "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100
+                "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100, "init_func": lambda x: 286 + np.random.random(x.shape), "temp": 290
             }
         },
         "mask": {"A1": 1, "A2": 1, "A3": 1, "A4": 1, "A5": 0},
