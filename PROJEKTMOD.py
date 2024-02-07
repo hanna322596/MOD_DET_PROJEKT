@@ -101,23 +101,23 @@ if __name__ == "__main__":
     def model_parameters(k1, k2, k3, k4, t1, t2, t3, t4, t5):
         apartment = {
             "rooms": {  # rooms
-                "A1": {
+                "A1": { #łązienka
                     "rowmin": 0, "rowmax": 50, "colmin": 0, "colmax": 40,
                     "init_func": lambda x: t1 + np.random.random(x.shape), "temp": 298
                 },
-                "A2": {
+                "A2": { #sypialnia
                     "rowmin": 0, "rowmax": 50, "colmin": 50, "colmax": 100,
                     "init_func": lambda x: t2 + np.random.random(x.shape), "temp": 298
                 },
-                "A3": {
+                "A3": { #korytarz
                     "rowmin": 0, "rowmax": 50, "colmin": 40, "colmax": 50,
                     "init_func": lambda x: t3 + np.random.random(x.shape), "temp": 298
                 },
-                "A4": {
+                "A4": { #salon
                     "rowmin": 50, "rowmax": 90, "colmin": 0, "colmax": 100,
                     "init_func": lambda x: t4 + np.random.random(x.shape), "temp": 298
                 },
-                "A5": {
+                "A5": { #klatka
                     "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100,
                     "init_func": lambda x: t5 + np.random.random(x.shape), "temp": 291
                 }
@@ -239,9 +239,9 @@ if __name__ == "__main__":
         model2.evolve(10000, 0.1)
         model3.evolve(10000, 0.1)
         model4.evolve(10000, 0.1)
-        plt.plot(model1.heatingData, "red", label=f'Power ={4, 4, 4, 2}')
+        plt.plot(model1.heatingData, "red", label=f'Power ={2, 4, 4, 2}')
         plt.plot(model2.heatingData, "blue", label=f'Power ={1, 2, 3, 4}')
-        plt.plot(model3.heatingData, "green", label=f'Power ={4, 3, 2, 4}')
+        plt.plot(model3.heatingData, "green", label=f'Power ={3, 0, 2, 4}')
         plt.plot(model4.heatingData, "purple", label=f'Power ={1, 2, 1, 0}')
         plt.legend(loc="upper left")
         plt.title("Łączne zużycie energii")
