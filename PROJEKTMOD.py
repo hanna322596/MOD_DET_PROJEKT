@@ -250,10 +250,10 @@ if __name__ == "__main__":
 
 
 
-    a1 = model_parameters(4, 4, 4, 2, 295, 298, 297, 296, 290)
-    a2 = model_parameters(1, 2, 3, 4, 295, 298, 297, 296, 290)
-    a3 = model_parameters(1, 3, 2, 4, 295, 298, 297, 296, 290)
-    a4 = model_parameters(1, 2, 1, 0, 295, 298, 297, 296, 290)
+    a1 = model_parameters(4, 4, 4, 2, 295, 295, 297, 296, 290)
+    a2 = model_parameters(1, 2, 3, 4, 295, 295, 297, 296, 290)
+    a3 = model_parameters(1, 3, 2, 4, 295, 295, 297, 296, 290)
+    a4 = model_parameters(1, 2, 1, 0, 295, 295, 297, 296, 290)
 
     model = HeatingModel(a1)
     model.result_matrix -= 273
