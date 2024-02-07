@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-
-#import seaborn as sns
+import tqdm
+import seaborn as sns
 
 
 class HeatingModel:
@@ -11,22 +11,12 @@ class HeatingModel:
         self.partial_matrix = {}
         self.result_matrix = np.zeros((100, 100))
         self.mask_matrix = np.zeros((100, 100))
-        self.temp_matrix = np.zeros((100, 100))
         self.index = {"windows": 1, "walls": 2, "doors": 3, "radiators": 5}
         self.build_partial_matrix()
         self.build_result_matrix()
-        self.build_result_matrix2()
-        self.build_apartment()
         self.heatingData = []
 
-        for key, val in parameters['rooms'].items():
-            self.partial_matrix[key] = np.zeros((val['rowmax'] - val['rowmin'], val['colmax'] - val['colmin']))
-            mask = parameters["mask"][key]
-            self.partial_matrix[key][mask == 1] = 4
-            self.result_matrix[val['rowmin']:val['rowmax'], val['colmin']:val['colmax']] = self.partial_matrix[key]
-        for i in self.index:
-            for key, val in self.parameters[i].items():
-                self.result_matrix[val['rowmin']:val['rowmax'], val['colmin']:val['colmax']] = self.index[i]
+
 
     def build_partial_matrix(self):
         for room in self.parameters["rooms"].keys():
@@ -42,12 +32,8 @@ class HeatingModel:
     def build_result_matrix(self):
         for room in self.parameters["rooms"].keys():
             coord = self.parameters["rooms"][room]
-            self.result_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = self.partial_matrix[room]
-
-    def build_result_matrix2(self):
-        for room in self.parameters["rooms"].keys():
-            coord = self.parameters["rooms"][room]
-            self.temp_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] += coord["temp"]
+            self.result_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = (
+                self.partial_matrix)[room]
 
     def build_mask_matrix(self):
         counter = 1
@@ -59,7 +45,7 @@ class HeatingModel:
 
 
     def evolve_in_unit_timestep(self, dt: float):
-        coefficient = self.parameters["diffusion_coeff"] * dt / self.parameters["domain"]["dx"] ** 2
+        coefficient = self.parameters["diffusion"] * dt / self.parameters["domain"]["dx"] ** 2
         force_term_full = self.parameters["force_term"](self.parameters["domain"]["grid"],
                                                     self.parameters["current_time"],
                                                     self.mask_matrix)
@@ -82,8 +68,10 @@ class HeatingModel:
                                                      self.partial_matrix[key][1:-1, 2:] -
                                                      4*self.partial_matrix[key][1:-1, 1:-1]) + \
                                                     force_term_full[
-                                                        self.parameters["rooms"][key]["rowmin"]+1: self.parameters["rooms"][key]["rowmax"]-1,
-                                                        self.parameters["rooms"][key]["colmin"]+1: self.parameters["rooms"][key]["colmax"]-1
+                                                        self.parameters["rooms"][key]["rowmin"]+1:
+                                                        self.parameters["rooms"][key]["rowmax"]-1,
+                                                        self.parameters["rooms"][key]["colmin"]+1:
+                                                        self.parameters["rooms"][key]["colmax"]-1
                                                     ]
             self.partial_matrix[key][0, :] = self.partial_matrix[key][1, :]
             self.partial_matrix[key][-1, :] = self.partial_matrix[key][-2, :]
@@ -100,7 +88,7 @@ class HeatingModel:
                         ]
                         )
         self.build_partial_matrix()
-        self.heatingData.append(np.sum(force_term_full))
+        #self.heatingData.append(np.sum(force_term_full))
         self.parameters["current_time"] += dt
         return self
 
@@ -113,23 +101,31 @@ class HeatingModel:
     def build_apartment(self):
         return self.result_matrix
 
+
+
+
 if __name__ == '__main__':
     apartment = {
         "rooms": { #rooms
             "A1": {
-                "rowmin": 2, "rowmax": 48, "colmin": 2, "colmax": 38, "init_func": lambda x: 295 + np.random.random(x.shape), "temp": 296
+                "rowmin": 0, "rowmax": 50, "colmin": 0, "colmax": 40,
+                "init_func": lambda x: 295 + np.random.random(x.shape), "temp": 296
             },
             "A2": {
-                "rowmin": 2, "rowmax": 48, "colmin": 52, "colmax": 98, "init_func": lambda x: 298 + np.random.random(x.shape), "temp": 296
+                "rowmin": 0, "rowmax": 50, "colmin": 50, "colmax": 100,
+                "init_func": lambda x: 298 + np.random.random(x.shape), "temp": 296
             },
             "A3": {
-                "rowmin": 2, "rowmax": 50, "colmin": 40, "colmax": 50, "init_func": lambda x: 297 + np.random.random(x.shape), "temp": 296
+                "rowmin": 0, "rowmax": 50, "colmin": 40, "colmax": 50,
+                "init_func": lambda x: 297 + np.random.random(x.shape), "temp": 296
             },
             "A4": {
-                "rowmin": 50, "rowmax": 88, "colmin": 2, "colmax": 98, "init_func": lambda x: 296 + np.random.random(x.shape), "temp": 296
+                "rowmin": 50, "rowmax": 90, "colmin": 0, "colmax": 100,
+                "init_func": lambda x: 296 + np.random.random(x.shape), "temp": 296
             },
             "A5": {
-                "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100, "init_func": lambda x: 286 + np.random.random(x.shape), "temp": 290
+                "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100,
+                "init_func": lambda x: 290 + np.random.random(x.shape), "temp": 290
             }
         },
         "mask": {"A1": 1, "A2": 1, "A3": 1, "A4": 1, "A5": 0},
@@ -225,30 +221,34 @@ if __name__ == '__main__':
         "domain": {
             "grid": np.meshgrid(np.linspace(-1,1,101),np.linspace(-1,1,101))[0], "dx": 1
         },
-        "force_term": lambda x,t,mask: np.where(
-            mask == 1, (np.sin(24*t/3600)**2 + 2)/10, np.where(
-                mask == 2, (np.sin(24*t/3600)**2 + 1)/10, np.where(
-                    mask == 3, (np.sin(24*t/3600)**2 + 1)/10, np.where(
-                        mask == 4, (np.sin(24*t/3600)**2 + 1)/10, 0
+        "force_term": lambda x, t, mask: np.where(
+            mask == 1, (np.sin(24*t/3600)**2 + 4)/10, np.where(
+                mask == 2, (np.sin(24*t/3600)**2 + 4)/10, np.where(
+                    mask == 3, (np.sin(24*t/3600)**2 + 4)/10, np.where(
+                        mask == 4, (np.sin(24*t/3600)**2 + 2)/10, 0
                         )
                     )
                 )
             ),
-        "window_temp": lambda t: 280 - 10*np.sin(24*t/3600),
+        "window_temp": lambda t: 285 - 10*np.sin(24*t/3600),
         "diffusion": 0.1,
         "current_time": 0.0
     }
-    cmap = ListedColormap(['white', 'blue', 'black', 'brown', 'floralwhite', 'red'])
 
     model = HeatingModel(apartment)
-    plt.imshow(model.build_apartment(), cmap=cmap)
-    plt.show()
-    apartment_matrix = model.temp_matrix
-    temperature_min = 286
-    temperature_max = 298
-    apartment_matrix = np.clip(apartment_matrix, temperature_min, temperature_max)
-
-    plt.imshow(apartment_matrix, cmap=plt.get_cmap("coolwarm"), vmin=temperature_min, vmax=temperature_max)
+    model.result_matrix -= 273
+    plt.imshow(model.result_matrix, cmap=plt.get_cmap("coolwarm"))
     plt.title(f"t = {model.parameters['current_time']}")
-    plt.colorbar().set_label("Temperature [K]")
+    plt.colorbar().set_label("Temperature[C]")
+    plt.show()
+
+
+    model1 = HeatingModel(apartment)
+    plt.plot(model.evolve(100, 0.1).heatingData, "r")
+    plt.show()
+    m1 = model1.evolve(20000, 0.1)
+    m1.result_matrix -= 273
+    plt.imshow(m1.result_matrix, cmap=plt.get_cmap("coolwarm"))
+    plt.title(f"t = {model.parameters['current_time']}")
+    plt.colorbar().set_label("Temperature [C]")
     plt.show()
