@@ -20,24 +20,24 @@ class HeatingModel:
 
     def build_partial_matrix(self):
         for room in self.parameters["rooms"].keys():
-            coordinates = self.parameters["rooms"][room]
+            coord = self.parameters["rooms"][room]
             if room not in self.partial_matrix.keys():
-                self.partial_matrix[room] = np.zeros((coordinates["rowmax"]-coordinates["rowmin"], coordinates["colmax"]-coordinates["colmin"]))
-                self.partial_matrix[room] = coordinates["init_func"](self.partial_matrix[room])
+                self.partial_matrix[room] = np.zeros((coord["rowmax"]-coord["rowmin"], coord["colmax"]-coord["colmin"]))
+                self.partial_matrix[room] = coord["init_func"](self.partial_matrix[room])
             else:
-                self.partial_matrix[room] = self.result_matrix[coordinates["rowmin"]: coordinates["rowmax"],
-                                            coordinates["colmin"]: coordinates["colmax"]]
+                self.partial_matrix[room] = self.result_matrix[coord["rowmin"]: coord["rowmax"],
+                                            coord["colmin"]: coord["colmax"]]
 
     def build_result_matrix(self):
         for room in self.parameters["rooms"].keys():
-            coordinates = self.parameters["rooms"][room]
-            self.result_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]] = self.partial_matrix[room]
+            coord = self.parameters["rooms"][room]
+            self.result_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = self.partial_matrix[room]
 
     def build_mask_matrix(self):
         counter = 1
         for radiators in self.parameters["radiators"].keys():
-            coordinates = self.parameters["radiators"][radiators]
-            self.mask_matrix[coordinates["rowmin"]:coordinates["rowmax"], coordinates["colmin"]:coordinates["colmax"]] = counter
+            coord = self.parameters["radiators"][radiators]
+            self.mask_matrix[coord["rowmin"]:coord["rowmax"], coord["colmin"]:coord["colmax"]] = counter
             counter += 1
 
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
                 },
                 "A5": { #klatka
                     "rowmin": 90, "rowmax": 100, "colmin": 0, "colmax": 100,
-                    "init_func": lambda x: t5 + np.random.random(x.shape), "temp": 291
+                    "init_func": lambda x: t5 + np.random.random(x.shape), "temp": 290
                 }
             },
             "masks": {"A1": 1, "A2": 1, "A3": 1, "A4": 1, "A5": 0},
@@ -224,7 +224,7 @@ if __name__ == "__main__":
                     )
                 )
             ),
-            "window_temp": lambda t: 285 - 10 * np.sin(24 * t / 3600),
+            "window_temp": lambda t: 280 - 10 * np.sin(24 * t / 3600),
             "diffusion": 0.1,
             "current_time": 0.0
         }
@@ -241,21 +241,22 @@ if __name__ == "__main__":
         model4.evolve(10000, 0.1)
         plt.plot(model1.heatingData, "red", label=f'Power ={2, 4, 4, 2}')
         plt.plot(model2.heatingData, "blue", label=f'Power ={1, 2, 3, 4}')
-        plt.plot(model3.heatingData, "green", label=f'Power ={3, 0, 2, 4}')
-        plt.plot(model4.heatingData, "purple", label=f'Power ={1, 2, 1, 0}')
+        plt.plot(model3.heatingData, "green", label=f'Power ={3, 0, 2, 1}')
+        plt.plot(model4.heatingData, "purple", label=f'Power ={1, 0, 1, 2,}')
         plt.legend(loc="upper left")
         plt.title("Łączne zużycie energii")
+        plt.savefig("en.png")
         plt.show()
 
 
 
 
-    a1 = model_parameters(2, 4, 4, 2, 295, 295, 297, 296, 290)
+    a1 = model_parameters(0, 4, 4, 1, 295, 295, 297, 296, 290)
     a2 = model_parameters(1, 2, 3, 4, 295, 295, 297, 296, 290)
-    a3 = model_parameters(3, 0, 2, 4, 295, 295, 297, 296, 290)
-    a4 = model_parameters(1, 2, 1, 0, 295, 295, 297, 296, 290)
+    a3 = model_parameters(3, 0, 2, 1, 295, 295, 297, 296, 290)
+    a4 = model_parameters(1, 0, 1, 2, 295, 295, 297, 296, 290)
 
-    model = HeatingModel(a1)
+    model = HeatingModel(a4)
     model.result_matrix -= 273
     plt.imshow(model.result_matrix, cmap=plt.get_cmap("coolwarm"))
     plt.title(f"t = {model.parameters['current_time']}")
@@ -266,10 +267,28 @@ if __name__ == "__main__":
 
 
     draw(a1, a2, a3, a4)
+
     model1 = HeatingModel(a4)
-    m1 = model1.evolve(10000, 0.1)
+    m1 = model1.evolve(10801, 0.1)
     m1.result_matrix -= 273
     plt.imshow(m1.result_matrix, cmap=plt.get_cmap("coolwarm"))
-    plt.title(f"t = {m1.parameters['current_time']}")
+    plt.title(f"t = {round(m1.parameters['current_time'], 2)}")
     plt.colorbar().set_label("Temperature [C]")
+    plt.savefig("t1.png")
+    plt.show()
+    model2 = HeatingModel(a4)
+    m2 = model2.evolve(7201, 0.1)
+    m2.result_matrix -= 273
+    plt.imshow(m2.result_matrix, cmap=plt.get_cmap("coolwarm"))
+    plt.title(f"t = {round(m1.parameters['current_time'], 2)}")
+    plt.colorbar().set_label("Temperature [C]")
+    plt.savefig("t2.png")
+    plt.show()
+    model3 = HeatingModel(a4)
+    m3 = model3.evolve(3601, 0.1)
+    m3.result_matrix -= 273
+    plt.imshow(m3.result_matrix, cmap=plt.get_cmap("coolwarm"))
+    plt.title(f"t = {round(m3.parameters['current_time'], 2)} ")
+    plt.colorbar().set_label("Temperature [C]")
+    plt.savefig("t3.png")
     plt.show()
