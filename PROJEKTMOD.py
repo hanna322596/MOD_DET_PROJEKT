@@ -260,7 +260,7 @@ if __name__ == "__main__":
     plt.imshow(model.result_matrix, cmap=plt.get_cmap("coolwarm"))
     plt.title(f"t = {model.parameters['current_time']}")
     plt.colorbar().set_label("Temperature[C]")
-    plt.savefig("Temperatura_domu.png")
+    plt.savefig("Temperaturadomu.png")
     plt.show()
 
 
